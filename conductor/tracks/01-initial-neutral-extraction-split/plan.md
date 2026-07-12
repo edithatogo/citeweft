@@ -4,4 +4,5 @@
 - [x] Add standalone Cargo metadata and dependency policy.
 - [x] Add independent Conductor product, workflow, and tech-stack context.
 - [x] Verify the crate has no Sourceright-specific adapter imports.
-- [ ] Run independent CI/security/package checks and record evidence.
+- [x] Run independent CI/security checks and record evidence; package and
+  release checks remain owned by Track 02.
