@@ -17,9 +17,10 @@
 
 ## Open gates
 
-- [ ] History-preserving split rehearsal against committed Sourceright history.
-  Blocked until the neutral Sourceright modules are committed in their source
-  repository; they are currently untracked there.
+- [x] Path-preserving split rehearsal against the committed neutral slice.
+  Git fast-export/import produced a one-commit standalone repository and all
+  five module hashes matched this repository. Older Sourceright history is not
+  claimed because these files were newly committed at the extraction boundary.
 - [ ] Independent benchmark fixtures and baseline policy.
 - [ ] Package checksum and immutable candidate release.
 - [ ] Downstream Sourceright adapter compatibility.
