@@ -4,5 +4,6 @@
   "priority": "critical",
   "owners": ["edithatogo"],
   "dependencies": ["01-initial-neutral-extraction-split"],
+  "github_issue": "https://github.com/edithatogo/citeweft/issues/3",
   "human_review_required": true
 }
