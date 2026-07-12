@@ -6,6 +6,8 @@
 - Initial extraction commit: `f4a859e`
 - Conductor linkage commit: `7778739`
 - Core CI: passed on 2026-07-12
+- Supply-chain CI (`cargo audit` and `cargo deny`): passed on 2026-07-12
+- Workflow harness CI: passed on 2026-07-12
 - Workflow harness: passed locally; GitHub CI rerun after governance hardening
 - Dependabot: Cargo and GitHub Actions update configuration active
 - Local crate tests: 16 passed
@@ -16,6 +18,8 @@
 ## Open gates
 
 - [ ] History-preserving split rehearsal against committed Sourceright history.
+  Blocked until the neutral Sourceright modules are committed in their source
+  repository; they are currently untracked there.
 - [ ] Independent benchmark fixtures and baseline policy.
 - [ ] Package checksum and immutable candidate release.
 - [ ] Downstream Sourceright adapter compatibility.
