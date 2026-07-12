@@ -1,0 +1,26 @@
+[package]
+name = "citeweft"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.88"
+description = "Neutral, auditable scholarly document extraction core"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/edithatogo/citeweft"
+homepage = "https://github.com/edithatogo/citeweft"
+readme = "README.md"
+keywords = ["scholarly", "extraction", "citations", "provenance"]
+categories = ["parser-implementations", "science"]
+
+[dependencies]
+serde = { version = "1.0.228", features = ["derive"] }
+sha2 = "0.10.9"
+thiserror = "2.0.17"
+
+[dev-dependencies]
+serde_json = "1.0.145"
+
+[lints.rust]
+unsafe_code = "forbid"
+
+[lints.clippy]
+all = "deny"

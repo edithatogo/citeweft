@@ -1,0 +1,9 @@
+{
+  "id": "01-initial-neutral-extraction-split",
+  "status": "in_progress",
+  "priority": "high",
+  "owners": ["edithatogo"],
+  "source_repository": "https://github.com/edithatogo/sourceright",
+  "destination_repository": "https://github.com/edithatogo/citeweft",
+  "human_review_required": true
+}

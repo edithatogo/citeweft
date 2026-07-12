@@ -1,0 +1,8 @@
+{
+  "id": "02-independent-release-and-downstream-compatibility",
+  "status": "planned",
+  "priority": "critical",
+  "owners": ["edithatogo"],
+  "dependencies": ["01-initial-neutral-extraction-split"],
+  "human_review_required": true
+}
