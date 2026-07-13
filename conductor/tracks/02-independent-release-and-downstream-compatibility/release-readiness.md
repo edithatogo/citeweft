@@ -29,3 +29,7 @@
 The initial extraction was intentionally created from a disposable directory
 because the relevant Sourceright neutral files were uncommitted. It therefore
 does not claim preserved Sourceright commit history.
+
+The CI package job now builds a locked Cargo package and uploads the crate plus
+SHA-256 checksum as a retained candidate artifact. This is candidate evidence,
+not a public release or registry acceptance.
