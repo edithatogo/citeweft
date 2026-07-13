@@ -10,6 +10,8 @@
 - Workflow harness CI: passed on 2026-07-12
 - Workflow harness: passed locally; GitHub CI rerun after governance hardening
 - Dependabot: Cargo and GitHub Actions update configuration active
+- Local package verification: passed with GNU toolchain
+- Candidate crate checksum: `827c1cebe0a2fb00a8cf567b1287f9a3756cab4d36b6b27561af013a271eaa7e`
 - Local crate tests: 16 passed
 - Local cargo-audit: passed
 - Local cargo-deny: passed
