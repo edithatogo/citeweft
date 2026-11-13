@@ -432,13 +432,12 @@ mod tests {
 
     const FIXTURE: &str = "A claim [1].\n\nReferences:\n[1] Ada Lovelace. (2026). A fixture reference. Fixture Journal. doi:10.1000/fixture.";
 
-
     #[test]
     fn unicode_and_crlf_sources_keep_all_reference_evidence_byte_exact() {
         for prefix in ["", "Māori 🧬", "Café", "São Paulo"] {
             let text = format!(
-                "{prefix} claim [1].\\r\\n\\r\\nReferences:\\r\\n[1] Ada Lovelace. (2026). {prefix} provenance study. doi:10.1000/fixture."
-            ).replace("\\r", "\r").replace("\\n", "\n");
+                "{prefix} claim [1].\r\n\r\nReferences:\r\n[1] Ada Lovelace. (2026). {prefix} provenance study. doi:10.1000/fixture."
+            );
             let report = DeterministicReferenceModel::default()
                 .extract(text.as_bytes())
                 .expect("extract synthetic reference");
