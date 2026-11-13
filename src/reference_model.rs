@@ -432,6 +432,50 @@ mod tests {
 
     const FIXTURE: &str = "A claim [1].\n\nReferences:\n[1] Ada Lovelace. (2026). A fixture reference. Fixture Journal. doi:10.1000/fixture.";
 
+
+    #[test]
+    fn unicode_and_crlf_sources_keep_all_reference_evidence_byte_exact() {
+        for prefix in ["", "Māori 🧬", "Café", "São Paulo"] {
+            let text = format!(
+                "{prefix} claim [1].\\r\\n\\r\\nReferences:\\r\\n[1] Ada Lovelace. (2026). {prefix} provenance study. doi:10.1000/fixture."
+            ).replace("\\r", "\r").replace("\\n", "\n");
+            let report = DeterministicReferenceModel::default()
+                .extract(text.as_bytes())
+                .expect("extract synthetic reference");
+            assert_eq!(report.references.len(), 1, "{prefix}");
+            assert_eq!(report.callouts.len(), 1, "{prefix}");
+
+            let reference = &report.references[0];
+            assert_eq!(
+                text.get(reference.span.start..reference.span.end),
+                Some(reference.span.text.as_str()),
+                "{prefix}: reference span"
+            );
+            for evidence in [
+                reference.fields.authors.as_ref(),
+                reference.fields.title.as_ref(),
+                reference.fields.year.as_ref(),
+                reference.fields.doi.as_ref(),
+            ].into_iter().flatten() {
+                assert_eq!(
+                    text.get(evidence.span.start..evidence.span.end),
+                    Some(evidence.span.text.as_str()),
+                    "{prefix}: field evidence span"
+                );
+            }
+            let callout = &report.callouts[0];
+            assert_eq!(
+                text.get(callout.span.start..callout.span.end),
+                Some(callout.surface.as_str()),
+                "{prefix}: callout span"
+            );
+
+            let json = serde_json::to_vec(&report).expect("serialize");
+            let decoded: ReferenceModelReport = serde_json::from_slice(&json).expect("deserialize");
+            assert_eq!(decoded, report);
+        }
+    }
+
     #[test]
     fn deterministic_model_segments_fields_and_links_callout() {
         let report = DeterministicReferenceModel::default()
