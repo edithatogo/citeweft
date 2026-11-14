@@ -1,0 +1,8 @@
+cff-version: 1.2.0
+message: If you use this work, please cite it using these metadata and identify the
+  commit or release used.
+title: CiteWeft
+authors:
+- name: Sourceright contributors
+repository-code: https://github.com/edithatogo/citeweft
+url: https://github.com/edithatogo/citeweft
