@@ -123,7 +123,7 @@ impl DeterministicReferenceModel {
                 }],
             ),
         };
-        let callouts = extract_numeric_callouts(text, section_start, &references);
+        let callouts = extract_numeric_callouts(text, section_start, &references, &mut diagnostics);
         if references.is_empty() && section.is_some() {
             diagnostics.push(ModelDiagnostic {
                 code: "reference_entries_not_found".to_string(),
@@ -315,10 +315,42 @@ fn evidence_for(value: &str, absolute_start: usize, _source: &str) -> FieldEvide
     }
 }
 
+// Bound expansion per surface before allocating its emitted callouts.
+const MAX_NUMERIC_GROUP_MEMBERS: usize = 256;
+
+fn parse_numeric_group(content: &str) -> Option<Vec<usize>> {
+    fn number(value: &str) -> Option<usize> {
+        let value = value.trim();
+        if value.is_empty() || !value.bytes().all(|b| b.is_ascii_digit()) {
+            return None;
+        }
+        value.parse::<usize>().ok().filter(|n| *n > 0)
+    }
+    let mut ordinals = Vec::new();
+    for member in content.split(',') {
+        let parts: Vec<_> = member.split(['-', '–']).collect();
+        let (first, last) = match parts.as_slice() {
+            [single] => {
+                let n = number(single)?;
+                (n, n)
+            }
+            [first, last] => (number(first)?, number(last)?),
+            _ => return None,
+        };
+        let count = last.checked_sub(first)?.checked_add(1)?;
+        if count > MAX_NUMERIC_GROUP_MEMBERS - ordinals.len() {
+            return None;
+        }
+        ordinals.extend(first..=last);
+    }
+    Some(ordinals)
+}
+
 fn extract_numeric_callouts(
     text: &str,
     section_start: usize,
     references: &[ReferenceCandidate],
+    diagnostics: &mut Vec<ModelDiagnostic>,
 ) -> Vec<CitationCallout> {
     let body = &text[..section_start];
     let mut callouts = Vec::new();
@@ -329,36 +361,57 @@ fn extract_numeric_callouts(
             index += 1;
             continue;
         }
-        let digits_start = index + 1;
-        let mut end = digits_start;
-        while end < bytes.len() && bytes[end].is_ascii_digit() {
+        // Consume the whole bracket surface, including malformed nesting, so
+        // an inner valid member cannot be mistaken for an independent citation.
+        let mut end = index + 1;
+        let mut depth = 1;
+        while end < bytes.len() && depth > 0 {
+            match bytes[end] {
+                b'[' => depth += 1,
+                b']' => depth -= 1,
+                _ => {}
+            }
             end += 1;
         }
-        if end == digits_start || end >= bytes.len() || bytes[end] != b']' {
-            index += 1;
+        let closed = depth == 0;
+        let content = &body[index + 1..if closed { end - 1 } else { end }];
+        let numeric_candidate = content
+            .trim_start_matches(|ch: char| ch == '[' || ch.is_whitespace())
+            .starts_with(|c: char| c.is_ascii_digit());
+        if !numeric_candidate {
+            index = end;
             continue;
         }
-        let surface = &body[index..=end];
-        let ordinal = body[digits_start..end].parse::<usize>().unwrap_or(0);
-        let reference_id =
-            (ordinal > 0 && ordinal <= references.len()).then(|| format!("r{ordinal}"));
-        callouts.push(CitationCallout {
-            id: format!("c{}", callouts.len() + 1),
-            surface: surface.to_string(),
-            span: SourceSpan {
-                start: index,
-                end: end + 1,
-                text: surface.to_string(),
-            },
-            confidence: if reference_id.is_some() { 1.0 } else { 0.0 },
-            status: if reference_id.is_some() {
-                ExtractionStatus::Extracted
-            } else {
-                ExtractionStatus::Review
-            },
-            reference_id,
-        });
-        index = end + 1;
+        let ordinals = closed.then(|| parse_numeric_group(content)).flatten();
+        let Some(ordinals) = ordinals else {
+            diagnostics.push(ModelDiagnostic {
+                code: "invalid_numeric_callout".to_string(),
+                message: format!("malformed or oversized numeric callout at bytes {index}..{end}; no members linked (limit {MAX_NUMERIC_GROUP_MEMBERS})"),
+            });
+            index = end;
+            continue;
+        };
+        let surface = &body[index..end];
+        for ordinal in ordinals {
+            let reference_id = (ordinal <= references.len()).then(|| format!("r{ordinal}"));
+            callouts.push(CitationCallout {
+                id: format!("c{}", callouts.len() + 1),
+                surface: surface.to_string(),
+                span: SourceSpan {
+                    start: index,
+                    end,
+                    text: surface.to_string(),
+                },
+                confidence: if reference_id.is_some() { 1.0 } else { 0.0 },
+                status: if reference_id.is_some() {
+                    ExtractionStatus::Extracted
+                } else {
+                    ExtractionStatus::Review
+                },
+                reference_id,
+            });
+        }
+        index = end;
     }
     callouts
 }
@@ -402,6 +455,123 @@ mod tests {
             .expect("extract fixture");
         assert_eq!(report.callouts[0].reference_id, None);
         assert_eq!(report.callouts[0].status, ExtractionStatus::Review);
+    }
+
+    fn grouped_fixture(surface: &str) -> ReferenceModelReport {
+        let text = format!(
+            "Māori claim {surface}.\n\nReferences:\n{}",
+            (1..=13)
+                .map(|n| format!("[{n}] Author. (2026). Title {n}."))
+                .collect::<Vec<_>>()
+                .join("\n")
+        );
+        DeterministicReferenceModel::default()
+            .extract(text.as_bytes())
+            .unwrap()
+    }
+
+    #[test]
+    fn grouped_callouts_preserve_full_utf8_byte_span() {
+        for surface in ["[11,12]", "[ 11 , 12 ]", "[11-12]", "[11–12]"] {
+            let report = grouped_fixture(surface);
+            assert_eq!(report.callouts.len(), 2, "{surface}");
+            for (i, callout) in report.callouts.iter().enumerate() {
+                assert_eq!(callout.reference_id, Some(format!("r{}", 11 + i)));
+                assert_eq!(callout.surface, surface);
+                assert_eq!(callout.span.start, "Māori claim ".len());
+                assert_eq!(callout.span.end, "Māori claim ".len() + surface.len());
+                assert_eq!(callout.span.text, surface);
+            }
+        }
+    }
+
+    #[test]
+    fn mixed_ranges_repeats_and_unknown_members_are_not_lost() {
+        let report = grouped_fixture("[1, 11–13,1,99]");
+        let ids: Vec<_> = report
+            .callouts
+            .iter()
+            .map(|c| c.reference_id.as_deref())
+            .collect();
+        assert_eq!(
+            ids,
+            vec![
+                Some("r1"),
+                Some("r11"),
+                Some("r12"),
+                Some("r13"),
+                Some("r1"),
+                None
+            ]
+        );
+        assert_eq!(report.callouts[5].status, ExtractionStatus::Review);
+        assert_eq!(report.callouts[5].confidence, 0.0);
+    }
+
+    #[test]
+    fn malformed_or_excessive_groups_never_partially_link() {
+        for surface in [
+            "[1,]",
+            "[1,,2]",
+            "[3–1]",
+            "[0,1]",
+            "[1;2]",
+            "[1-2-3]",
+            "[1,foo]",
+            "[1,[2]]",
+            "[1,2",
+            "[1-1000000000]",
+            "[184467440737095516160]",
+            "[1–256,2]",
+            "[1—2]",
+        ] {
+            let report = grouped_fixture(surface);
+            assert!(report.callouts.is_empty(), "{surface}");
+            assert!(
+                report
+                    .diagnostics
+                    .iter()
+                    .any(|d| d.code == "invalid_numeric_callout"),
+                "{surface}"
+            );
+        }
+    }
+
+    #[test]
+    fn nested_numeric_groups_report_diagnostics_without_partial_links() {
+        for surface in ["[[1]]", "[ [ 1 ] ]", "[[1]", "[[1,2]]"] {
+            let report = grouped_fixture(&format!("{surface} then [3]"));
+            assert!(
+                report
+                    .callouts
+                    .iter()
+                    .all(|callout| callout.surface == "[3]")
+            );
+            assert!(
+                report
+                    .diagnostics
+                    .iter()
+                    .any(|diagnostic| diagnostic.code == "invalid_numeric_callout"),
+                "{surface}"
+            );
+        }
+        let prose = grouped_fixture("[[note]] then [3]");
+        assert_eq!(prose.callouts.len(), 1);
+        assert!(
+            !prose
+                .diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.code == "invalid_numeric_callout")
+        );
+    }
+
+    #[test]
+    fn bounded_group_expansion_and_separate_valid_groups() {
+        assert_eq!(grouped_fixture("[1-256]").callouts.len(), 256);
+        let report = grouped_fixture("[1,,2] then [3]");
+        assert_eq!(report.callouts.len(), 1);
+        assert_eq!(report.callouts[0].reference_id.as_deref(), Some("r3"));
+        assert!(grouped_fixture("[note]").callouts.is_empty());
     }
 
     #[test]

@@ -1,0 +1,16 @@
+{
+  "id": "03-tabular-numeric-span-grounding",
+  "status": "planned",
+  "priority": "high",
+  "owners": ["edithatogo"],
+  "dependencies": [
+    "01-initial-neutral-extraction-split",
+    "02-independent-release-and-downstream-compatibility"
+  ],
+  "downstream_consumers": [
+    "edithatogo/sourceright",
+    "edithatogo/searchright",
+    "edithatogo/tobac"
+  ],
+  "human_review_required": true
+}

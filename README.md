@@ -37,3 +37,20 @@ cargo check --locked
 ```
 
 See `conductor/` for the independent project context and extraction roadmap.
+
+## Numeric callout grammar
+
+The deterministic reference model accepts positive integer bracket callouts,
+comma groups, ascending inclusive hyphen/en-dash ranges, and mixed groups
+(for example `[11,12]`, `[11–13]`, `[1, 3-5]`). Whitespace around members and
+separators is accepted. Each member produces a callout retaining the **entire
+original bracket surface and UTF-8 byte span**; repeated members are retained.
+Unknown ordinals have no reference link, zero confidence and review status.
+
+Expansion is limited to 256 members per bracket surface. Malformed, overflowing,
+descending, zero-valued, nested or excessive numeric groups emit an
+`invalid_numeric_callout` diagnostic and no partial links. Arbitrary bracketed
+prose is ignored. The model does not extract DOCX superscript runs or prove
+reference identity, first-use order, or scientific support. These encodings are
+fixture-qualified; the document adapter remains responsible for faithful source
+extraction and mapping any derived normalization back to the original document.
